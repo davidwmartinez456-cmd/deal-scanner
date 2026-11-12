@@ -39,12 +39,14 @@ I built it to screen small multifamily and mixed-use deals in northern New Jerse
 
 **Due diligence checklist.** Generated per deal, with extra items for mixed-use properties and marginal scores.
 
-**Gmail listing parser** (`gmail_listings.py`). Reads MLS auto-prospecting emails through the Gmail API (read-only scope) and extracts address and price for each listing. It currently runs on its own; feeding its output straight into the scorer is the next step.
+**Email-to-digest pipeline.** `gmail_listings.py` reads MLS auto-prospecting emails through the Gmail API and extracts the address, price and unit count for each listing. `pipeline.py` removes duplicates, sends each new listing through the scorer, and saves the results so nothing is scanned twice. `send_digest.py` emails a ranked digest: decision, score, cap rate, cash-on-cash, DSCR, monthly cash flow, maximum price and opening offer for each listing.
 
 ## How it is built
 
 ```
-index.html  ──POST──▶  server.py (Flask)
+Gmail ──▶ gmail_listings.py ──▶ pipeline.py ──┐            ┌──▶ send_digest.py ──▶ digest email
+                                              ▼            │
+index.html  ──POST──▶  server.py (Flask)  ─────────────────┘
                           │
                           ├─ fetch_property_data()   Claude + web search → JSON inputs
                           ├─ calc_financials()       NOI, debt service, cash flow
@@ -59,6 +61,7 @@ Design choices:
 - **The model never does the math.** It returns structured JSON inputs with a source for each figure. All calculations are deterministic Python.
 - **User input overrides the model.** Rent and price overrides take precedence over anything the model finds.
 - **Token use is tiered.** The basic scan makes one model call. Reference data such as the NJ rent table is hardcoded so common lookups cost nothing.
+- **The API only answers its own page.** The server binds to `127.0.0.1`, serves the frontend itself, and refuses requests from any other web origin.
 - **Underwriting assumptions live in one config block** (`BASE_CONFIG`, `LOAN_DEFAULTS`) at the top of `server.py`.
 
 ## Run it
@@ -74,9 +77,14 @@ cp .env.example .env        # then paste your API key into .env
 python server.py
 ```
 
-Open `index.html` in a browser. The page calls the server at `http://127.0.0.1:5000`.
+Open `http://127.0.0.1:5000` in a browser.
 
-For the Gmail parser, create an OAuth client in Google Cloud Console, save it as `credentials.json` in this folder, and run `python gmail_listings.py`. The first run opens a browser window to authorize read-only access.
+For the email pipeline, create an OAuth client in Google Cloud Console and save it as `credentials.json` in this folder. The first run opens a browser window to authorize reading mail and sending the digest to yourself. With the server running:
+
+```bash
+python pipeline.py 5      # scan up to 5 new listings
+python send_digest.py     # email the ranked digest
+```
 
 ## Limits
 
@@ -86,6 +94,8 @@ For the Gmail parser, create an OAuth client in Google Cloud Console, save it as
 
 ## Roadmap
 
-- Connect the Gmail parser to the scorer so new listings are scored automatically
+- Run the pipeline on a schedule
+- Market scanner: pull new listings from a licensed data source, filter by criteria, send daily alerts
+- Pipeline manager: SQLite database tracking each deal from discovered to closed, with ROI
 - Unit tests for the financial engine
-- Save scan history
+- Later: negotiation assistant, mortgage comparison, tax planning

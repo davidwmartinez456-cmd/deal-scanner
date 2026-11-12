@@ -9,6 +9,10 @@ __pycache__/
 venv/
 .venv/
 
+# Scan results contain real addresses
+pipeline_results*.json
+
 # Local clutter
 *.backup
+*.pre_units
 .DS_Store

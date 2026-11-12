@@ -511,7 +511,7 @@ async function go(){
   const priceOv = $('priceOverride').value ? parseFloat($('priceOverride').value) : null;
 
   try{
-    const res=await fetch('http://127.0.0.1:5000/api/analyze',{
+    const res=await fetch('/api/analyze',{
       method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({address:addr,tier:currentTier,loan_type:lt,down_pct:dp,rate:rt,
         price_mode:currentMode,rent_override:rentOv,price_override:priceOv,
@@ -706,7 +706,7 @@ async function runStrategy(type){
     w2_income:w2
   };
   try{
-    const res=await fetch('http://127.0.0.1:5000/api/strategy/'+type,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const res=await fetch('/api/strategy/'+type,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     const d=await res.json();
     renderCard(type,d);
     btn.classList.remove('loading');

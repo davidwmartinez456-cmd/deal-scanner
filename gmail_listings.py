@@ -7,7 +7,7 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 
-SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
+SCOPES = ['https://www.googleapis.com/auth/gmail.readonly', 'https://www.googleapis.com/auth/gmail.send']
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 def get_gmail_service():
@@ -17,9 +17,13 @@ def get_gmail_service():
     if os.path.exists(token_path):
         creds = Credentials.from_authorized_user_file(token_path, SCOPES)
     if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
+        from google.auth.exceptions import RefreshError
+        try:
+            if creds and creds.expired and creds.refresh_token:
+                creds.refresh(Request())
+            else:
+                raise RefreshError('no usable token')
+        except RefreshError:
             flow = InstalledAppFlow.from_client_secrets_file(creds_path, SCOPES)
             creds = flow.run_local_server(port=0)
         with open(token_path, 'w') as token:
@@ -62,9 +66,11 @@ def parse_listings_from_html(html):
                 state_match = re.match(r'^(NJ)\s+(\d{5})', state_line)
                 if state_match:
                     full_address = f"{address_line}, {city_line}, NJ {state_match.group(2)}"
+                    um = re.match(r'^(\d+)\s*Family', lines[i + 2], re.IGNORECASE)
                     listings.append({
                         'address': full_address,
-                        'price': price
+                        'price': price,
+                        'units': int(um.group(1)) if um else 1
                     })
         i += 1
     return listings

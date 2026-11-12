@@ -1,14 +1,28 @@
 import os
 import json
-from flask import Flask, request, jsonify
-from flask_cors import CORS
+from flask import Flask, request, jsonify, send_from_directory
 from dotenv import load_dotenv
 import anthropic
 
 load_dotenv()
 client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 app = Flask(__name__)
-CORS(app)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Only this app's own page may call the API. Browsers attach an Origin header
+# to cross-site requests, so a request carrying any other origin is refused.
+# Local scripts such as pipeline.py send no Origin header and are allowed.
+ALLOWED_ORIGINS = {"http://127.0.0.1:5000", "http://localhost:5000"}
+
+@app.before_request
+def block_other_sites():
+    origin = request.headers.get("Origin")
+    if origin and origin not in ALLOWED_ORIGINS:
+        return jsonify({"status": "error", "message": "Origin not allowed"}), 403
+
+@app.route('/')
+def home():
+    return send_from_directory(BASE_DIR, 'index.html')
 
 BASE_CONFIG = {
     # ── Scorecard floors (from DM Master Doc) ─────────────────────────
@@ -399,14 +413,21 @@ def build_scorecard(price, rent, f, config, rate=0.0, est_market_value=0):
     return scorecard, cap_rate, coc, cap_at_market
 
 
-def fetch_property_data(address):
+def fetch_property_data(address, units=1):
+    units = int(units or 1)
+    if units > 1:
+        rent_rule = (f"This is a {units}-unit multi-family building. Estimate market rent for EACH unit "
+                     f"from comparable rentals within 0.5mi, then return the TOTAL monthly rent for all "
+                     f"{units} units combined. NOT lowest.")
+    else:
+        rent_rule = "median comparable rentals 0.5mi, same bed/bath. NOT lowest."
     r = client.messages.create(
         model="claude-sonnet-4-6", max_tokens=2000,
         tools=[{"type":"web_search_20250305","name":"web_search"}],
         messages=[{"role":"user","content":f"""Real estate research for: {address}
 Search Zillow, Redfin, county tax records.
 1. PURCHASE PRICE: most recent actual sale from public records NOT Zestimate. If none, listing price. State which.
-2. MONTHLY RENT: median comparable rentals 0.5mi, same bed/bath. NOT lowest.
+2. MONTHLY RENT: {rent_rule}
 3. ANNUAL TAXES: actual county tax bill.
 4. ANNUAL INSURANCE: estimate by property type/location.
 5. WATER/SEWER: estimate or 0.
@@ -431,6 +452,7 @@ Return ONLY JSON:
 def analyze():
     body       = request.json
     address    = body.get('address')
+    units      = int(body.get('units') or 1)
     tier       = body.get('tier','basic')
     loan_type  = body.get('loan_type','investment')
     down_pct   = float(body.get('down_pct', LOAN_DEFAULTS.get(loan_type,{}).get('down',25)))
@@ -448,7 +470,7 @@ def analyze():
          f"Mode: {price_mode.upper()}",
          f"Loan: {LOAN_DEFAULTS.get(loan_type,{}).get('label',loan_type)}, {down_pct}% down, {rate}% rate"]
     try:
-        data      = fetch_property_data(address)
+        data      = fetch_property_data(address, units)
         sale_price    = float(data.get("purchase_price",0))
         est_value     = float(data.get("estimated_current_value",0))
         ai_rent   = float(data.get("monthly_rent",0))
@@ -1015,4 +1037,4 @@ def strategy_heloc():
 
 
 if __name__=='__main__':
-    app.run(port=5000, debug=os.getenv("FLASK_DEBUG") == "1")
+    app.run(host="127.0.0.1", port=5000, debug=os.getenv("FLASK_DEBUG") == "1")
