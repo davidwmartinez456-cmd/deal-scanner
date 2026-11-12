@@ -1,0 +1,14 @@
+# Secrets: never commit
+.env
+credentials.json
+token.json
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# Local clutter
+*.backup
+.DS_Store

@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Deal Scanner v7 — David Martinez</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0F1117;--surface:#1A1D27;--surface2:#232733;--border:#2E3341;--text:#E4E7EF;--dim:#8B90A0;--blue:#4A90D9;--green:#34D399;--green-bg:rgba(52,211,153,.1);--green-bd:rgba(52,211,153,.35);--red:#F87171;--red-bg:rgba(248,113,113,.1);--red-bd:rgba(248,113,113,.35);--yellow:#FBBF24;--yellow-bg:rgba(251,191,36,.1);--yellow-bd:rgba(251,191,36,.35);--orange:#FB923C;--orange-bg:rgba(251,146,60,.1);--purple:#A78BFA;--purple-bg:rgba(167,139,250,.1)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.container{max-width:880px;margin:0 auto;padding:24px 16px 80px}
+.hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.hdr h1{font-size:18px;font-weight:700;letter-spacing:-.3px}.hdr h1 span{color:var(--blue)}
+.badges{display:flex;gap:6px}
+.bdg{font-family:'JetBrains Mono',monospace;font-size:10px;padding:4px 10px;border-radius:20px;font-weight:600}
+.bdg-v{background:var(--surface2);color:var(--dim);border:1px solid var(--border)}
+.bdg-s{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd);display:none}
+.bdg-dscr{background:var(--purple-bg);color:var(--purple);border:1px solid rgba(167,139,250,.35);display:none;margin-left:4px}
+/* Tier */
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:14px}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--dim);letter-spacing:.5px;text-transform:uppercase;margin-bottom:10px}
+.tier-opts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.tier-opt{position:relative;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:12px;cursor:pointer;transition:all .15s}
+.tier-opt:hover{border-color:var(--blue)}.tier-opt.active{border-color:var(--blue);background:rgba(74,144,217,.08)}
+.tier-name{font-size:13px;font-weight:600;margin-bottom:2px}.tier-cost{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--dim)}.tier-opt.active .tier-cost{color:var(--blue)}
+.tier-tip{position:absolute;top:calc(100% + 8px);left:0;right:0;background:#0a0c12;border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-size:11px;color:var(--dim);line-height:1.6;opacity:0;pointer-events:none;transition:opacity .15s;z-index:10;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.tier-tip strong{color:var(--blue);display:block;margin-bottom:6px;font-size:10px;text-transform:uppercase;letter-spacing:.4px}
+.tier-tip ul{list-style:none}.tier-tip li:before{content:"• ";color:var(--blue)}
+.tier-tip .cost-line{margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--yellow)}
+.tier-opt:hover .tier-tip{opacity:1}
+/* Financing Panel */
+.fin-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px}
+.fin-field label{font-size:11px;color:var(--dim);display:block;margin-bottom:5px}
+.fin-field select,.fin-field input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:9px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;outline:none;transition:border .2s}
+.fin-field select:focus,.fin-field input:focus{border-color:var(--blue)}
+.fin-field input[type=number]::-webkit-inner-spin-button{opacity:.5}
+.w2-row{display:flex;align-items:center;gap:10px;padding-top:10px;border-top:1px solid var(--border);font-size:12px;color:var(--dim)}
+.w2-row label{cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap}
+.w2-row input[type=checkbox]{accent-color:var(--blue);width:14px;height:14px;cursor:pointer}
+.w2-row input[type=number]{width:160px}
+.w2-note{font-size:11px;color:var(--dim);font-style:italic}
+/* Mixed-use panel */
+.mu-toggle-row{display:flex;align-items:center;gap:10px;padding-top:10px;border-top:1px solid var(--border);margin-top:2px;font-size:12px;color:var(--dim)}
+.mu-toggle-row label{cursor:pointer;display:flex;align-items:center;gap:6px;font-weight:600;color:var(--text)}
+.mu-panel{display:none;margin-top:12px;padding:12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border)}
+.mu-panel.show{display:block}
+.mu-unit{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:10px 12px;margin-bottom:8px}
+.mu-unit-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.mu-unit-label{font-size:12px;font-weight:700;color:var(--text)}
+.mu-unit-type{font-size:10px;padding:3px 8px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-weight:600}
+.mu-type-commercial{background:var(--purple-bg);color:var(--purple)}
+.mu-type-residential{background:var(--green-bg);color:var(--green)}
+.mu-fields{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.mu-field label{font-size:11px;color:var(--dim);display:block;margin-bottom:3px}
+.mu-field input,.mu-field select{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:7px 8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:12px;outline:none}
+.mu-field input:focus,.mu-field select:focus{border-color:var(--blue)}
+.mu-total{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--blue);padding:8px;background:rgba(74,144,217,.08);border-radius:4px;text-align:center;margin-top:4px}
+.mu-add-btn{background:var(--surface2);border:1px dashed var(--border);border-radius:6px;padding:8px;width:100%;cursor:pointer;font-size:12px;color:var(--dim);font-family:'DM Sans',sans-serif;transition:all .15s;margin-top:4px}
+.mu-add-btn:hover{border-color:var(--blue);color:var(--blue)}
+.mu-del{background:none;border:none;color:var(--dim);cursor:pointer;font-size:14px;padding:0 4px}
+.mu-del:hover{color:var(--red)}
+.mu-breakdown{background:var(--surface2);border-radius:8px;overflow:hidden;margin-bottom:12px}
+.mu-brow{display:flex;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--border);font-size:12px}
+.mu-brow:last-child{border-bottom:none}
+.mu-bl{color:var(--dim)}.mu-bv{font-family:'JetBrains Mono',monospace;font-weight:600}
+.mu-badge{font-size:10px;padding:2px 6px;border-radius:3px;margin-left:6px;font-weight:600;vertical-align:middle}
+.mu-com{background:var(--purple-bg);color:var(--purple)}
+.mu-res{background:var(--green-bg);color:var(--green)}
+/* Negotiation Target */
+.neg-banner{border-radius:10px;padding:16px 20px;margin-bottom:16px;border:2px solid var(--yellow-bd)}
+.neg-banner{background:var(--yellow-bg)}
+.neg-title{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--yellow);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;font-weight:700}
+.neg-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px}
+.neg-cell{background:var(--surface);border-radius:6px;padding:10px 12px;text-align:center}
+.neg-cell-lbl{font-size:11px;color:var(--dim);margin-bottom:3px}
+.neg-cell-val{font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:700}
+.neg-cell.ceiling .neg-cell-val{color:var(--yellow)}
+.neg-cell.opening .neg-cell-val{color:var(--green)}
+.neg-cell.aggressive .neg-cell-val{color:var(--blue)}
+.neg-constraints{margin-top:8px}
+.neg-con{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:11px}
+.neg-con:last-child{border-bottom:none}
+.neg-con-k{color:var(--dim)}.neg-con-v{font-family:'JetBrains Mono',monospace;color:var(--text);text-align:right;font-size:10px}
+.neg-binding{font-size:11px;color:var(--yellow);font-weight:600;margin-top:6px;text-align:center}
+.neg-at-ceiling{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:8px}
+.nac{background:var(--surface2);border-radius:4px;padding:6px 8px;text-align:center;font-size:11px}
+.nac-l{color:var(--dim);font-size:10px;margin-bottom:2px}
+.nac-v{font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--green)}
+/* Due Diligence */
+.dd-cat{margin-bottom:10px}
+.dd-cat-title{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.4px;padding:8px 16px;background:var(--surface2);border-bottom:1px solid var(--border)}
+.dd-item{display:flex;align-items:flex-start;gap:10px;padding:8px 16px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text);line-height:1.5}
+.dd-item:last-child{border-bottom:none}
+.dd-item:before{content:"☐";font-size:14px;flex-shrink:0;color:var(--dim);margin-top:1px}
+.dd-mixed{border-left:3px solid var(--purple)}
+/* Price Mode Toggle */
+.mode-row{display:flex;align-items:center;gap:8px;padding-top:10px;border-top:1px solid var(--border);margin-top:2px}
+.mode-btn{background:var(--surface2);border:1.5px solid var(--border);border-radius:6px;padding:7px 14px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;color:var(--dim);transition:all .15s}
+.mode-btn.active.acq{border-color:var(--blue);color:var(--blue);background:rgba(74,144,217,.08)}
+.mode-btn.active.port{border-color:var(--purple);color:var(--purple);background:var(--purple-bg)}
+.mode-label{font-size:11px;color:var(--dim)}
+/* Price mode bar */
+.mode-bar{border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;display:none}
+.mode-bar.show{display:flex;align-items:center;gap:8px}
+.mode-bar.acq{background:rgba(74,144,217,.08);border:1px solid rgba(74,144,217,.3);color:var(--blue)}
+.mode-bar.port{background:var(--purple-bg);border:1px solid rgba(167,139,250,.3);color:var(--purple)}
+/* Cap rate at market sub-note */
+.sc-sub{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blue);margin-top:2px}
+/* Search */
+.search{display:flex;gap:8px;margin-bottom:20px}
+.search input{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 16px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;outline:none;transition:border .2s}
+.search input:focus{border-color:var(--blue)}.search input::placeholder{color:var(--dim)}
+.search button{background:var(--blue);color:#fff;border:none;border-radius:8px;padding:14px 24px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer;transition:opacity .2s}
+.search button:hover{opacity:.9}.search button:disabled{opacity:.5;cursor:not-allowed}
+.ld{text-align:center;padding:40px 0;color:var(--dim);font-size:14px;display:none}.ld.on{display:block}
+.sp{width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--blue);border-radius:50%;margin:0 auto 12px;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.err{background:var(--red-bg);border:1px solid var(--red-bd);border-radius:10px;padding:16px 20px;color:var(--red);font-size:14px;display:none}.err.on{display:block}
+#results{display:none}#results.on{display:block}
+/* Decision */
+.dec{border-radius:10px;padding:20px 24px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between}
+.dec.buy{background:var(--green-bg);border:1px solid var(--green-bd)}.dec.pass{background:var(--red-bg);border:1px solid var(--red-bd)}.dec.review{background:var(--orange-bg);border:1px solid rgba(251,146,60,.35)}
+.dec-lbl{font-size:13px;font-weight:500;color:var(--dim);margin-bottom:2px}
+.dec-val{font-size:28px;font-weight:700;letter-spacing:-.5px}
+.dec.buy .dec-val{color:var(--green)}.dec.pass .dec-val{color:var(--red)}.dec.review .dec-val{color:var(--orange)}
+.sc-bdg{font-family:'JetBrains Mono',monospace;font-size:24px;font-weight:600}.vrd{font-size:12px;color:var(--dim);margin-top:2px;text-align:right}
+/* DSCR badge row */
+.dscr-badge-row{background:var(--purple-bg);border:1px solid rgba(167,139,250,.3);border-radius:8px;padding:12px 16px;margin-bottom:14px;display:none}
+.dscr-badge-row.show{display:flex;align-items:center;gap:10px}
+.dscr-badge-icon{font-size:18px}
+.dscr-badge-text{font-size:13px;color:var(--purple)}.dscr-badge-note{font-size:11px;color:var(--dim);margin-top:2px}
+/* All-cash highlight */
+.allcash-bar{background:var(--yellow-bg);border:1px solid var(--yellow-bd);border-radius:8px;padding:10px 16px;margin-bottom:14px;font-size:13px;color:var(--yellow);display:none}
+.allcash-bar.show{display:flex;align-items:center;gap:8px}
+.prop-hdr{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 20px;margin-bottom:14px}
+.prop-addr{font-size:16px;font-weight:700;margin-bottom:6px}.prop-meta{display:flex;flex-wrap:wrap;gap:10px;font-size:12px;color:var(--dim)}.prop-meta span{background:var(--surface2);padding:3px 8px;border-radius:4px}
+.sec{background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:14px;overflow:hidden}
+.sec-h{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;color:var(--dim);padding:12px 16px;background:var(--surface2);border-bottom:1px solid var(--border);letter-spacing:.5px;text-transform:uppercase}
+.rw{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;border-bottom:1px solid var(--border);font-size:13px}.rw:last-child{border-bottom:none}
+.rw-l{color:var(--dim)}.rw-v{font-family:'JetBrains Mono',monospace;font-weight:600;text-align:right}
+.rw-hl{background:rgba(74,144,217,.05)}.rw-noi{background:rgba(74,144,217,.08);border-bottom:2px solid var(--blue)!important}.rw-noi .rw-v{color:var(--blue);font-size:14px}.rw-neg .rw-v{color:var(--red)}.rw-hi .rw-v{color:var(--green)}
+.sc-rw{display:grid;grid-template-columns:28px 1fr 80px 90px auto;align-items:center;padding:10px 16px;border-bottom:1px solid var(--border);font-size:13px;gap:8px}.sc-rw:last-child{border-bottom:none}
+.sc-i{font-size:16px;text-align:center}.sc-m{font-weight:500}.sc-v{font-family:'JetBrains Mono',monospace;font-weight:600;text-align:right}
+.sc-t{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--dim);text-align:right}
+.sc-s{font-size:11px;padding:3px 8px;border-radius:4px;font-weight:600;text-align:center;white-space:nowrap}
+.s-p{background:var(--green-bg);color:var(--green)}.s-f{background:var(--red-bg);color:var(--red)}.s-w{background:var(--yellow-bg);color:var(--yellow)}
+/* Strategy bar */
+.strat-bar-wrap{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:14px}
+.strat-bar-title{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--dim);letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px}
+.strat-bar-sub{font-size:12px;color:var(--dim);margin-bottom:14px;line-height:1.5}
+.strat-btns{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.strat-btn{background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:10px 16px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;color:var(--dim);transition:all .2s;white-space:nowrap}
+.strat-btn:hover{border-color:var(--blue);color:var(--text)}.strat-btn.loading{opacity:.6;cursor:not-allowed}
+.strat-btn.done-green{border-color:var(--green-bd);color:var(--green);background:var(--green-bg)}
+.strat-btn.done-yellow{border-color:var(--yellow-bd);color:var(--yellow);background:var(--yellow-bg)}
+.strat-btn.done-red{border-color:var(--red-bd);color:var(--red);background:var(--red-bg)}
+.s8-hud-row{display:none;align-items:center;gap:10px;padding:8px 0;font-size:12px;color:var(--dim)}
+.s8-hud-row.show{display:flex}
+.s8-hud-row label{cursor:pointer;display:flex;align-items:center;gap:6px}
+input[type=checkbox]{accent-color:var(--blue);width:14px;height:14px;cursor:pointer}
+.legend{display:flex;gap:16px;padding-top:10px;border-top:1px solid var(--border);flex-wrap:wrap}
+.legend-item{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--dim)}
+.legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.legend-dot.g{background:var(--green)}.legend-dot.y{background:var(--yellow)}.legend-dot.r{background:var(--red)}
+/* Strategy cards */
+.strat-card{border-radius:10px;margin-bottom:12px;overflow:hidden;border:1.5px solid var(--border)}
+.strat-card.green{border-color:var(--green-bd)}.strat-card.yellow{border-color:var(--yellow-bd)}.strat-card.red{border-color:var(--red-bd)}
+.strat-header{padding:14px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer}
+.strat-card.green .strat-header{background:var(--green-bg)}.strat-card.yellow .strat-header{background:var(--yellow-bg)}.strat-card.red .strat-header{background:var(--red-bg)}
+.strat-h-left{display:flex;align-items:center;gap:10px}
+.strat-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+.strat-card.green .strat-dot{background:var(--green)}.strat-card.yellow .strat-dot{background:var(--yellow)}.strat-card.red .strat-dot{background:var(--red)}
+.strat-h-name{font-size:13px;font-weight:700}.strat-card.green .strat-h-name{color:var(--green)}.strat-card.yellow .strat-h-name{color:var(--yellow)}.strat-card.red .strat-h-name{color:var(--red)}
+.strat-h-headline{font-size:12px;color:var(--dim);margin-top:1px}
+.strat-verdict{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;padding:4px 10px;border-radius:4px;white-space:nowrap}
+.strat-card.green .strat-verdict{background:var(--green-bg);color:var(--green)}.strat-card.yellow .strat-verdict{background:var(--yellow-bg);color:var(--yellow)}.strat-card.red .strat-verdict{background:var(--red-bg);color:var(--red)}
+.strat-body{display:none;padding:14px 16px;background:var(--surface);border-top:1px solid var(--border)}.strat-body.open{display:block}
+/* Numbers grid */
+.num-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:12px}
+.num-cell{background:var(--surface2);border-radius:6px;padding:10px 12px}
+.num-lbl{font-size:11px;color:var(--dim);margin-bottom:3px}.num-val{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700}
+/* Section 8 direct numbers */
+.s8-numbers{background:var(--green-bg);border:1px solid var(--green-bd);border-radius:8px;padding:14px 16px;margin-bottom:12px}
+.s8-num-row{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(52,211,153,.15);font-size:13px}
+.s8-num-row:last-child{border-bottom:none}.s8-num-l{color:var(--dim)}.s8-num-v{font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--green)}
+/* Flip scenarios */
+.flip-scenarios{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.flip-scen{border-radius:8px;padding:12px;border:1px solid var(--border)}
+.flip-scen.green{background:var(--green-bg);border-color:var(--green-bd)}.flip-scen.yellow{background:var(--yellow-bg);border-color:var(--yellow-bd)}.flip-scen.red{background:var(--red-bg);border-color:var(--red-bd)}
+.flip-scen-label{font-size:11px;font-weight:700;margin-bottom:8px;text-transform:uppercase;letter-spacing:.3px}
+.flip-scen.green .flip-scen-label{color:var(--green)}.flip-scen.yellow .flip-scen-label{color:var(--yellow)}.flip-scen.red .flip-scen-label{color:var(--red)}
+.flip-scen-row{display:flex;justify-content:space-between;font-size:11px;padding:3px 0}
+.flip-scen-k{color:var(--dim)}.flip-scen-v{font-family:'JetBrains Mono',monospace;font-weight:600}
+/* Tax section */
+.tax-box{background:var(--surface2);border-radius:8px;padding:12px 14px;margin-bottom:12px;border-left:3px solid var(--yellow)}
+.tax-title{font-size:11px;font-weight:700;color:var(--yellow);text-transform:uppercase;letter-spacing:.3px;margin-bottom:8px}
+.tax-row{display:flex;justify-content:space-between;font-size:12px;padding:3px 0}
+.tax-k{color:var(--dim)}.tax-v{font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--yellow)}
+.tax-warn{font-size:11px;color:var(--orange);margin-top:8px;padding-top:8px;border-top:1px solid var(--border);line-height:1.5}
+/* Checklist */
+.checklist{margin-bottom:12px}
+.chk-item{display:flex;align-items:flex-start;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px}.chk-item:last-child{border-bottom:none}
+.chk-icon{font-size:14px;flex-shrink:0;margin-top:1px}.chk-text{flex:1}.chk-label{font-weight:600;color:var(--text)}.chk-note{color:var(--dim);margin-top:1px;line-height:1.4}
+.formula-box{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--blue);margin-bottom:12px;padding:8px;background:var(--surface2);border-radius:4px}
+/* Footnotes */
+.fn-toggle{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blue);cursor:pointer;letter-spacing:.3px;margin-top:10px}.fn-toggle:hover{text-decoration:underline}
+.fn-wrap{display:none;margin-top:8px;padding:10px 14px;background:var(--surface2);border-radius:6px;border:1px solid var(--border)}.fn-wrap.open{display:block}
+.fn-line{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--dim);line-height:1.8;padding:1px 0}
+/* Proj / RR / MI */
+.proj-wrap{overflow-x:auto}.proj{width:100%;border-collapse:collapse;font-size:12px}
+.proj th{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;color:var(--dim);padding:10px 8px;text-align:right;letter-spacing:.3px;text-transform:uppercase;border-bottom:2px solid var(--border);background:var(--surface2)}
+.proj th:first-child{text-align:left}.proj td{padding:8px;text-align:right;border-bottom:1px solid var(--border);font-family:'JetBrains Mono',monospace}
+.proj td:first-child{text-align:left;color:var(--dim);font-weight:600}
+.proj tr.proj-noi td{font-weight:700;color:var(--blue);border-bottom:2px solid var(--blue)}.proj tr.proj-cf td{font-weight:600}
+.proj .neg{color:var(--red)}.proj .pos{color:var(--green)}
+.rr-summary{display:grid;grid-template-columns:1fr 1fr 1fr}.rr-cell{padding:14px 16px;border-right:1px solid var(--border);text-align:center}.rr-cell:last-child{border-right:none}
+.rr-cell-lbl{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.rr-cell-val{font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700}
+.rr-cell.risk .rr-cell-val{color:var(--red)}.rr-cell.reward .rr-cell-val{color:var(--green)}.rr-cell.ratio .rr-cell-val{color:var(--blue)}
+.rr-vrd{padding:10px 16px;background:var(--surface2);text-align:center;font-size:13px;font-weight:600;border-bottom:1px solid var(--border)}
+.rr-factor{display:grid;grid-template-columns:1fr 50px 80px;gap:8px;padding:8px 16px;border-bottom:1px solid var(--border);font-size:12px;align-items:center}.rr-factor:last-child{border-bottom:none}
+.rr-fl{color:var(--dim)}.rr-fnote{font-size:11px;color:var(--text);margin-top:2px;line-height:1.4}
+.rr-fs{font-family:'JetBrains Mono',monospace;font-weight:700;text-align:center;padding:3px 6px;border-radius:4px;font-size:11px}
+.rr-fs.r1,.rr-fs.r2{background:var(--green-bg);color:var(--green)}.rr-fs.r3{background:var(--yellow-bg);color:var(--yellow)}.rr-fs.r4,.rr-fs.r5{background:var(--red-bg);color:var(--red)}
+.rr-fs.rev1,.rr-fs.rev2{background:var(--red-bg);color:var(--red)}.rr-fs.rev3{background:var(--yellow-bg);color:var(--yellow)}.rr-fs.rev4,.rr-fs.rev5{background:var(--green-bg);color:var(--green)}
+.rr-bar{background:var(--surface2);border-radius:3px;height:6px;overflow:hidden}.rr-bar-fill{height:100%}
+.mi-grid{display:grid;grid-template-columns:1fr 1fr}.mi-cell{padding:12px 16px;border-right:1px solid var(--border);border-bottom:1px solid var(--border)}.mi-cell:nth-child(even){border-right:none}
+.mi-cell-lbl{font-size:11px;color:var(--dim);margin-bottom:2px}.mi-cell-val{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600}
+.mi-source{padding:8px 16px;font-size:11px;color:var(--dim);background:var(--surface2)}
+.src-i{padding:8px 16px;border-bottom:1px solid var(--border);font-size:12px;color:var(--dim);line-height:1.5}.src-i:last-child{border-bottom:none}
+.cfg-g{display:grid;grid-template-columns:1fr 1fr}.cfg-i{padding:8px 16px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);font-size:12px;display:flex;justify-content:space-between}.cfg-i:nth-child(even){border-right:none}
+.cfg-l{color:var(--dim)}.cfg-v{font-family:'JetBrains Mono',monospace;font-weight:600}
+@media(max-width:600px){.tier-opts,.fin-grid{grid-template-columns:1fr}.sc-rw{grid-template-columns:24px 1fr 70px auto}.sc-t{display:none}.dec-val{font-size:22px}.flip-scenarios{grid-template-columns:1fr}}
+
+/* ── PRINT / PDF EXPORT STYLES ────────────────────────────────────── */
+@media print {
+  body{background:#fff;color:#111}
+  .panel,.search,.strat-bar-wrap,#btn,.ld,.err,.fn-toggle{display:none!important}
+  .container{max-width:100%;padding:0}
+  .sec,.dec,.prop-hdr,.mode-bar,.dscr-badge-row,.allcash-bar,.strat-card{
+    background:#fff!important;border:1px solid #ccc!important;
+    box-shadow:none!important;break-inside:avoid;page-break-inside:avoid;margin-bottom:10px!important}
+  .sec-h{background:#f0f0f0!important;color:#333!important}
+  .rw,.sc-rw,.rr-factor,.mi-cell,.cfg-i,.src-i{border-bottom:1px solid #ddd!important}
+  .rw-l,.sc-t,.dim,.dec-lbl,.vrd,.cfg-l,.mi-cell-lbl,.src-i,.fn-line{color:#555!important}
+  .rw-v,.sc-v,.cfg-v,.mi-cell-val{color:#111!important}
+  .dec.buy{background:#e8f8f0!important}.dec.pass{background:#fdeaea!important}.dec.review{background:#fff3e6!important}
+  .dec-val{color:#111!important}
+  .fn-wrap{display:block!important;background:#f7f7f7!important}
+  .proj th{background:#f0f0f0!important;color:#333!important}
+  .strat-header{background:#f5f5f5!important}
+  h1,.hdr h1 span{color:#111!important}
+  .badges{display:none}
+  .print-footer{display:block!important;text-align:center;font-size:10px;color:#888;margin-top:20px;padding-top:10px;border-top:1px solid #ccc}
+}
+.print-footer{display:none}
+.export-btn{background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:10px 18px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;color:var(--text);transition:all .2s;display:inline-flex;align-items:center;gap:6px}
+.export-btn:hover{border-color:var(--blue);color:var(--blue)}
+.export-row{display:flex;justify-content:flex-end;gap:8px;margin-bottom:14px}
+</style>
+</head>
+<body>
+<div class="container">
+<div class="hdr">
+  <h1><span>AI</span> Deal Scanner</h1>
+  <div class="badges">
+    <span class="bdg bdg-v">v7.0</span>
+    <span id="secB" class="bdg bdg-s">&#10003; SECURED</span>
+    <span id="dscrB" class="bdg bdg-dscr">DSCR CANDIDATE</span>
+  </div>
+</div>
+
+<!-- Tier selector -->
+<div class="panel"><div class="panel-label">Analysis Depth</div><div class="tier-opts">
+<div class="tier-opt active" data-tier="basic" onclick="setTier('basic')"><div class="tier-name">Basic</div><div class="tier-cost">~30 sec · 1 call</div><div class="tier-tip"><strong>Financial Underwriting</strong><ul><li>Property data + 8-metric scorecard</li><li>7-year projection + BUY/REVIEW/PASS</li></ul><div class="cost-line">~3K tokens</div></div></div>
+<div class="tier-opt" data-tier="risk" onclick="setTier('risk')"><div class="tier-name">+ Risk / Reward</div><div class="tier-cost">~60 sec · 2 calls</div><div class="tier-tip"><strong>Adds Risk &amp; Reward Scoring</strong><ul><li>5 risk factors + 5 reward factors</li><li>Weighted ratio with verdict</li></ul><div class="cost-line">~6K tokens</div></div></div>
+<div class="tier-opt" data-tier="intel" onclick="setTier('intel')"><div class="tier-name">+ Market Intel</div><div class="tier-cost">~90 sec · 3 calls</div><div class="tier-tip"><strong>Adds Full Market Research</strong><ul><li>Jobs, demographics, rent ceiling</li><li>Supply, flood, schools, crime</li></ul><div class="cost-line">~10K tokens</div></div></div>
+</div></div>
+
+<!-- Financing Panel -->
+<div class="panel">
+  <div class="panel-label">Financing Profile</div>
+  <div class="fin-grid">
+    <div class="fin-field">
+      <label>Loan Type</label>
+      <select id="loanType" onchange="onLoanTypeChange()">
+        <option value="investment">Investment Loan (25% down, 6.5%)</option>
+        <option value="conventional">Conventional (5% down, 6.5%)</option>
+        <option value="all_cash">All Cash (no mortgage)</option>
+        <option value="dscr">DSCR Loan (25% down, 7.75%)</option>
+      </select>
+    </div>
+    <div class="fin-field">
+      <label>Down Payment %</label>
+      <input type="number" id="downPct" value="25" min="0" max="100" step="1">
+    </div>
+    <div class="fin-field" id="rateField">
+      <label>Interest Rate %</label>
+      <input type="number" id="rateInput" value="6.5" min="0" max="20" step="0.25">
+    </div>
+    <div class="fin-field">
+      <label>Rent Override <span style="color:var(--dim);font-weight:400">(optional — your number wins)</span></label>
+      <input type="number" id="rentOverride" placeholder="Leave blank to use AI estimate" min="0" step="50">
+    </div>
+    <div class="fin-field">
+      <label>Purchase Price Override <span style="color:var(--dim);font-weight:400">(optional)</span></label>
+      <input type="number" id="priceOverride" placeholder="Leave blank to use AI estimate" min="0" step="1000">
+    </div>
+  </div>
+  <div class="w2-row">
+    <label><input type="checkbox" id="w2Toggle" onchange="toggleW2()"> Share W2 income for STR tax estimate</label>
+    <input type="number" id="w2Input" placeholder="Annual W2 income" style="display:none" min="0">
+    <span class="w2-note" id="w2Note" style="display:none">Used only for STR depreciation estimate — never stored</span>
+  </div>
+  <div class="mode-row">
+    <span class="mode-label">Price Mode:</span>
+    <button class="mode-btn active acq" id="modeAcq" onclick="setMode('acquisition')">📈 Acquisition (market value)</button>
+    <button class="mode-btn port" id="modePort" onclick="setMode('portfolio')">🏦 Portfolio (my cost basis)</button>
+    <span class="mode-label" id="modeNote" style="font-style:italic">Acquisition: runs numbers at today's market price for new purchases</span>
+  </div>
+  <div class="mu-toggle-row">
+    <label><input type="checkbox" id="muToggle" onchange="toggleMixedUse()"> 🏢 Mixed-Use Property (commercial + residential units)</label>
+    <span style="font-size:11px;color:var(--dim)">Activate to enter unit breakdown — your numbers win over AI estimates</span>
+  </div>
+  <div class="mu-panel" id="muPanel">
+    <div id="muUnits"></div>
+    <button class="mu-add-btn" onclick="addUnit()">+ Add Unit</button>
+    <div class="mu-total" id="muTotal">Total monthly income: $0</div>
+    <div style="font-size:11px;color:var(--dim);margin-top:6px">
+      💡 Commercial vacancy: 3% · Mgmt: 4% · Maint: 2% (NNN assumptions)<br>
+      Residential vacancy: 7% · Mgmt: 10% · Maint: 8% (standard assumptions)
+    </div>
+  </div>
+</div>
+
+<!-- Address -->
+<div class="search">
+  <input id="addr" placeholder="Paste property address..." onkeydown="if(event.key==='Enter')go()">
+  <button id="btn" onclick="go()">Analyze</button>
+</div>
+
+<div class="ld" id="ld"><div class="sp"></div><span id="ldMsg">Searching...</span></div>
+<div class="err" id="err"></div>
+
+<div id="results">
+  <div class="export-row">
+    <button class="export-btn" onclick="window.print()">📄 Export PDF</button>
+  </div>
+  <div id="decB" class="dec"></div>
+  <div id="dscrBadge" class="dscr-badge-row"></div>
+  <div id="allCashBar" class="allcash-bar">💡 All-Cash mode: DSCR is N/A. Metrics shift to Cap Rate and Payback Period.</div>
+  <div id="modeBar" class="mode-bar"></div>
+  <div id="propH" class="prop-hdr" style="display:none"></div>
+  <div class="sec" id="sA"></div>
+  <div class="sec" id="sB"></div>
+  <div class="sec" id="sC"></div>
+  <div class="sec" id="sD"></div>
+  <div id="sNeg" style="display:none"></div>
+  <div class="sec" id="sDD" style="display:none"></div>
+  <div class="sec" id="sRR" style="display:none"></div>
+  <div class="sec" id="sMI" style="display:none"></div>
+
+  <!-- Strategy bar -->
+  <div class="strat-bar-wrap" id="stratBar" style="display:none">
+    <div class="strat-bar-title">Strategy Analysis</div>
+    <div class="strat-bar-sub">Verify the numbers above first. Then run any strategy independently — each is a separate analysis. Click only what's relevant to this deal.</div>
+    <div class="strat-btns">
+      <button class="strat-btn" id="btn-section8" onclick="runStrategy('section8')">🏢 Section 8</button>
+      <button class="strat-btn" id="btn-str" onclick="runStrategy('str')">🏖 STR / Airbnb</button>
+      <button class="strat-btn" id="btn-ltr" onclick="runStrategy('ltr')">🏠 Value-Add LTR</button>
+      <button class="strat-btn" id="btn-flip" onclick="runStrategy('flip')">🔨 Flip</button>
+      <button class="strat-btn" id="btn-heloc" onclick="runStrategy('heloc')">💰 HELOC / Equity</button>
+    </div>
+    <div class="s8-hud-row" id="s8HudRow">
+      <label><input type="checkbox" id="s8HudToggle"> Search HUD Live (out-of-state)</label>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--yellow)">~1K tokens</span>
+    </div>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot g"></div><span>Green = Strong fit</span></div>
+      <div class="legend-item"><div class="legend-dot y"></div><span>Yellow = Investigate</span></div>
+      <div class="legend-item"><div class="legend-dot r"></div><span>Red = Not viable</span></div>
+    </div>
+  </div>
+  <div id="stratResults"></div>
+
+  <div class="sec" id="sSrc"></div>
+  <div class="sec" id="sCfg"></div>
+  <div class="print-footer" id="printFooter"></div>
+</div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const fmt=n=>'$'+Math.round(n).toLocaleString();
+let currentTier='basic', lastData=null, currentMode='acquisition';
+
+// Fix 1 — defaults aligned with DM Master Doc (25% down, 6.5%)
+const LOAN_DEFS={
+  investment:{down:25,rate:6.5},conventional:{down:5,rate:6.5},
+  all_cash:{down:100,rate:0},dscr:{down:25,rate:7.75}
+};
+
+function setTier(t){currentTier=t;document.querySelectorAll('.tier-opt').forEach(el=>el.classList.toggle('active',el.dataset.tier===t))}
+
+function setMode(m){
+  currentMode=m;
+  $('modeAcq').className='mode-btn'+(m==='acquisition'?' active acq':' port');
+  $('modePort').className='mode-btn'+(m==='portfolio'?' active port':' acq');
+  $('modeNote').textContent=m==='acquisition'?
+    'Acquisition: runs numbers at today\'s market price for new purchases':
+    'Portfolio: runs numbers at your original cost basis for properties you own';
+}
+
+let unitCount=0;
+function toggleMixedUse(){
+  const on=$('muToggle').checked;
+  $('muPanel').classList.toggle('show',on);
+  if(on&&$('muUnits').children.length===0){
+    addUnit('commercial');addUnit('residential');addUnit('residential');
+  }
+}
+
+function addUnit(defaultType){
+  unitCount++;
+  const id='unit'+unitCount;
+  const typeVal=defaultType||'residential';
+  const typeCls=typeVal==='commercial'?'mu-type-commercial':'mu-type-residential';
+  const typeLabel=typeVal==='commercial'?'COMMERCIAL':'RESIDENTIAL';
+  const div=document.createElement('div');
+  div.className='mu-unit';div.id=id;
+  div.innerHTML='<div class="mu-unit-header"><span class="mu-unit-label">Unit '+unitCount+'</span><div style="display:flex;align-items:center;gap:8px"><span class="mu-unit-type '+typeCls+'" id="'+id+'badge">'+typeLabel+'</span><button class="mu-del" onclick="removeUnit(\''+id+'\')">✕</button></div></div>'+
+    '<div class="mu-fields">'+
+    '<div class="mu-field"><label>Type</label><select id="'+id+'type" onchange="updateUnitBadge(\''+id+'\');calcMuTotal()">'+
+    '<option value="commercial"'+(typeVal==='commercial'?' selected':'')+'>Commercial</option>'+
+    '<option value="residential"'+(typeVal==='residential'?' selected':'')+'>Residential</option></select></div>'+
+    '<div class="mu-field"><label>Monthly Rent ($)</label><input type="number" id="'+id+'rent" placeholder="e.g. 3000" min="0" step="50" oninput="calcMuTotal()"></div>'+
+    '<div class="mu-field"><label>Sqft (optional — for $/sqft check)</label><input type="number" id="'+id+'sqft" placeholder="e.g. 900" min="0" step="10"></div>'+
+    '</div>';
+  $('muUnits').appendChild(div);
+  calcMuTotal();
+}
+
+function removeUnit(id){document.getElementById(id).remove();calcMuTotal();}
+
+function updateUnitBadge(id){
+  const t=$(id+'type').value;
+  const b=$(id+'badge');
+  b.textContent=t==='commercial'?'COMMERCIAL':'RESIDENTIAL';
+  b.className='mu-unit-type '+(t==='commercial'?'mu-type-commercial':'mu-type-residential');
+}
+
+function calcMuTotal(){
+  let total=0;
+  document.querySelectorAll('.mu-unit').forEach(u=>{
+    const rid=u.id+'rent';
+    const v=parseFloat($(rid)&&$(rid).value||0);
+    if(!isNaN(v))total+=v;
+  });
+  $('muTotal').textContent='Total monthly income: $'+Math.round(total).toLocaleString()+'/mo  ·  $'+Math.round(total*12).toLocaleString()+'/yr';
+}
+
+function getMixedUseUnits(){
+  if(!$('muToggle').checked) return null;
+  const units=[];
+  document.querySelectorAll('.mu-unit').forEach(u=>{
+    const tid=u.id+'type', rid=u.id+'rent', sid=u.id+'sqft';
+    const rent=parseFloat($(rid)&&$(rid).value||0);
+    if(rent>0){
+      units.push({
+        type:$(tid)?$(tid).value:'residential',
+        monthly_rent:rent,
+        sqft:parseFloat($(sid)&&$(sid).value||0)||0
+      });
+    }
+  });
+  return units.length>0?units:null;
+}
+
+function onLoanTypeChange(){
+  const lt=$('loanType').value;
+  const def=LOAN_DEFS[lt]||{down:25,rate:6.5};
+  $('downPct').value=def.down;
+  $('rateInput').value=def.rate;
+  $('rateField').style.opacity=lt==='all_cash'?'0.4':'1';
+  $('rateInput').disabled=lt==='all_cash';
+}
+
+function toggleW2(){
+  const on=$('w2Toggle').checked;
+  $('w2Input').style.display=on?'block':'none';
+  $('w2Note').style.display=on?'inline':'none';
+}
+
+async function go(){
+  const addr=$('addr').value.trim();if(!addr)return;
+  const btn=$('btn');btn.disabled=true;btn.textContent='Searching...';
+  $('ld').classList.add('on');
+  $('ldMsg').textContent=currentTier==='intel'?'Running 3 searches...':currentTier==='risk'?'Running 2 searches...':'Searching property data...';
+  $('results').classList.remove('on');$('err').classList.remove('on');
+  $('stratResults').innerHTML='';$('dscrBadge').className='dscr-badge-row';
+  $('allCashBar').className='allcash-bar';$('dscrB').style.display='none';
+  $('modeBar').className='mode-bar';
+  document.querySelectorAll('.strat-btn').forEach(b=>{b.className='strat-btn';b.disabled=false});
+
+  const lt=$('loanType').value;
+  const dp=parseFloat($('downPct').value)||10;
+  const rt=parseFloat($('rateInput').value)||7.0;
+
+  const rentOv = $('rentOverride').value ? parseFloat($('rentOverride').value) : null;
+  const priceOv = $('priceOverride').value ? parseFloat($('priceOverride').value) : null;
+
+  try{
+    const res=await fetch('http://127.0.0.1:5000/api/analyze',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({address:addr,tier:currentTier,loan_type:lt,down_pct:dp,rate:rt,
+        price_mode:currentMode,rent_override:rentOv,price_override:priceOv,
+        mixed_use_units:getMixedUseUnits()})});
+    const d=await res.json();
+    if(d.status==='error'){$('err').textContent=d.message;$('err').classList.add('on');done();return}
+    if(d.secure)$('secB').style.display='inline';
+    lastData=d;
+
+    // Decision
+    const cls=d.decision==='BUY'?'buy':d.decision==='REVIEW'?'review':'pass';
+    $('decB').className='dec '+cls;
+    const fin=d.financing||{};
+    const finLabel=fin.label?` · ${fin.label} · ${fin.down_pct}% down · ${fin.rate}%`:'';
+    $('decB').innerHTML='<div><div class="dec-lbl">DECISION'+finLabel+'</div><div class="dec-val">'+d.decision+'</div></div><div style="text-align:right"><div class="sc-bdg">'+d.score+'</div><div class="vrd">'+d.verdict+'</div></div>';
+
+    // All-cash bar
+    if(fin.all_cash){$('allCashBar').classList.add('show')}
+
+    // Price mode bar
+    const modeBarEl=$('modeBar');
+    if(d.inputs&&d.inputs.price_mode_note){
+      modeBarEl.className='mode-bar show '+(d.price_mode==='acquisition'?'acq':'port');
+      const icon=d.price_mode==='acquisition'?'📈':'🏦';
+      modeBarEl.innerHTML=icon+' '+d.inputs.price_mode_note+
+        (d.inputs.sale_price&&d.inputs.sale_price!==d.inputs.purchase_price?
+          ` &nbsp;|&nbsp; Last sale: ${fmt(d.inputs.sale_price)}`:'');
+    }
+
+    // DSCR candidate badge
+    if(d.dscr_badge&&d.dscr_badge.qualifies){
+      $('dscrBadge').className='dscr-badge-row show';
+      $('dscrBadge').innerHTML='<div class="dscr-badge-icon">🔑</div><div><div class="dscr-badge-text">DSCR Loan Candidate — qualifies without W2 income</div><div class="dscr-badge-note">'+d.dscr_badge.note+'</div></div>';
+      $('dscrB').style.display='inline';
+    }
+
+    // Property header
+    const p=d.property;
+    if(p&&(p.bedrooms||p.sqft)){let meta='';
+      if(p.type&&p.type!=='unknown')meta+='<span>'+p.type+'</span>';
+      if(p.bedrooms)meta+='<span>'+p.bedrooms+'BR / '+p.bathrooms+'BA</span>';
+      if(p.sqft)meta+='<span>'+p.sqft.toLocaleString()+' sqft</span>';
+      if(p.year_built)meta+='<span>Built '+p.year_built+'</span>';
+      if(p.zip_code)meta+='<span>'+p.zip_code+'</span>';
+      $('propH').style.display='block';
+      $('propH').innerHTML='<div class="prop-addr">'+d.address+'</div><div class="prop-meta">'+meta+'</div>'}
+
+    // Section A
+    const i=d.inputs;
+    let sAHtml=sh('A — Property Inputs')+
+      rw('Analysis Price',fmt(i.purchase_price),'rw-hl')+
+      (i.sale_price&&i.sale_price!==i.purchase_price?rw('Last Recorded Sale',fmt(i.sale_price)):'')+
+      rw('Monthly Rent',fmt(i.monthly_rent))+rw('Gross Annual Rent',fmt(i.annual_gross))+
+      rw('Annual RE Taxes',fmt(i.annual_taxes))+rw('Annual Insurance',fmt(i.annual_insurance))+
+      (i.water_sewer>0?rw('Water / Sewer',fmt(i.water_sewer)):'')+
+      (i.estimated_current_value>0?rw('Est. Current Value',fmt(i.estimated_current_value),'rw-hl'):'')+
+      (d.derived&&d.derived.cap_rate_at_market?rw('Cap Rate at Market Value',d.derived.cap_rate_at_market+'%'):'');
+    // Mixed-use income breakdown
+    if(i.is_mixed_use&&d.derived&&d.derived.unit_income){
+      const ui=d.derived.unit_income;
+      sAHtml+=sh('Unit Income Breakdown','10px')+'<div class="mu-breakdown">';
+      if(i.mixed_use_units){i.mixed_use_units.forEach((u,idx)=>{
+        const isC=u.type==='commercial';
+        const psf=u.sqft>0?' <span style="font-size:10px;color:var(--dim)">($'+(u.monthly_rent*12/u.sqft).toFixed(2)+'/sqft/yr)</span>':'';
+        sAHtml+='<div class="mu-brow"><span class="mu-bl">Unit '+(idx+1)+' <span class="mu-badge '+(isC?'mu-com':'mu-res')+'">'+(isC?'COMMERCIAL':'RESIDENTIAL')+'</span></span><span class="mu-bv">$'+Math.round(u.monthly_rent).toLocaleString()+'/mo'+psf+'</span></div>';
+      });}
+      sAHtml+='<div class="mu-brow" style="background:rgba(52,211,153,.05)"><span class="mu-bl"><b>Residential Gross</b></span><span class="mu-bv" style="color:var(--green)">'+fmt(ui.res_gross)+'/yr</span></div>';
+      sAHtml+='<div class="mu-brow" style="background:rgba(167,139,250,.05)"><span class="mu-bl"><b>Commercial Gross</b></span><span class="mu-bv" style="color:var(--purple)">'+fmt(ui.com_gross)+'/yr</span></div>';
+      if(ui.com_psf_annual){sAHtml+='<div class="mu-brow"><span class="mu-bl">Commercial $/sqft/yr <span style="font-size:10px;color:var(--dim)">(Linden retail: $18–$32 range)</span></span><span class="mu-bv">$'+ui.com_psf_annual+'</span></div>';}
+      sAHtml+='<div class="mu-brow" style="background:rgba(74,144,217,.08);border-top:2px solid var(--blue)"><span class="mu-bl" style="font-weight:700">Total Gross Annual</span><span class="mu-bv" style="color:var(--blue);font-size:14px">'+fmt(ui.total_gross)+'/yr</span></div>';
+      sAHtml+='</div>';
+    }
+    $('sA').innerHTML=sAHtml;
+
+    // Section B
+    const v=d.derived,c=d.config_used,f2=d.financing||{};
+    let cfCls=v.monthly_cf<0?' rw-neg':' rw-hi';
+    let bHtml=sh('B — Derived Values');
+    if(!f2.all_cash){
+      bHtml+=rw('Down Payment ('+f2.down_pct+'%)',fmt(v.down_payment))+rw('Loan Amount',fmt(v.loan_amount))+rw('Monthly Mortgage',fmt(v.monthly_mortgage))+rw('Annual Debt Service',fmt(v.annual_debt_service));
+    } else {
+      bHtml+=rw('Cash Purchase',fmt(i.purchase_price),'rw-hl');
+    }
+    bHtml+=rw('Total Cash Invested',fmt(v.total_cash_invested),'rw-hl')+sh('Expense Breakdown','10px')+rw('Vacancy ('+c.vacancy_rate+'%)',fmt(v.vacancy_loss))+rw('Management ('+c.mgmt_fee+'%)',fmt(v.mgmt_cost))+rw('Maintenance ('+c.maintenance+'%)',fmt(v.maintenance))+rw('Total Operating Expenses',fmt(v.total_expenses),'rw-hl')+'<div class="rw rw-noi"><span class="rw-l">NOI (Net Operating Income)</span><span class="rw-v">'+fmt(v.noi)+'</span></div>'+'<div class="rw'+cfCls+'"><span class="rw-l">Monthly Cash Flow</span><span class="rw-v">'+fmt(v.monthly_cf)+'</span></div>'+'<div class="rw'+cfCls+'"><span class="rw-l">Annual Cash Flow</span><span class="rw-v">'+fmt(v.annual_cf)+'</span></div>';
+    if(v.payback_years&&f2.all_cash){bHtml+=rw('Payback Period',v.payback_years+' years','rw-hl')}
+    if(v.dscr&&!f2.all_cash){bHtml+=rw('DSCR',v.dscr.toFixed(2))}
+    $('sB').innerHTML=bHtml;
+
+    // Section C
+    let scH=sh('C — Deal Scorecard (8 Metrics)');
+    d.scorecard.forEach((s,idx)=>{const ic=s.pass?'&#10003;':'&#10007;';const icC=s.pass?'var(--green)':'var(--red)';let sig=s.pass?'s-p':'s-f';if(/MARGINAL|WEAK|BREAK|ELEVATED|AVERAGE|Check|N\/A|NEGATIVE/.test(s.signal))sig='s-w';
+    scH+='<div class="sc-rw"><div class="sc-i" style="color:'+icC+'">'+ic+'</div>'+
+      '<div class="sc-m"><div>'+(idx+1)+'. '+s.metric+'</div>'+(s.sub?'<div class="sc-sub">'+s.sub+'</div>':'')+'</div>'+
+      '<div class="sc-v">'+s.value+'</div><div class="sc-t">'+s.threshold+'</div>'+
+      '<div class="sc-s '+sig+'">'+s.signal+'</div></div>'});
+    $('sC').innerHTML=scH;
+
+    // Section D — projection
+    const pr=d.projection;let th='<th>Item</th>';pr.forEach(y=>th+='<th>Yr '+y.year+'</th>');
+    let tbody=pR('Gross Rent',pr.map(y=>y.gross_rent))+pR('Total Expenses',pr.map(y=>y.total_expenses))+pR('NOI',pr.map(y=>y.noi),'proj-noi');
+    if(!f2.all_cash)tbody+=pR('Debt Service',pr.map(y=>y.debt_service));
+    tbody+=pR('Net Cash Flow',pr.map(y=>y.net_cash_flow),'proj-cf',true)+pR('Cash-on-Cash',pr.map(y=>y.coc+'%'),'',true,true);
+    if(!f2.all_cash)tbody+=pR('DSCR',pr.map(y=>y.dscr?y.dscr.toFixed(2):'N/A'),'',true,true);
+    $('sD').innerHTML=sh('D — 7-Year Projection ('+c.rent_accelerator+'% rent / '+c.expense_accelerator+'% exp growth)')+'<div class="proj-wrap"><table class="proj"><thead><tr>'+th+'</tr></thead><tbody>'+tbody+'</tbody></table></div>';
+
+    // Negotiation Target
+    if(d.negotiation_target){
+      const nt=d.negotiation_target;
+      const askPrice=d.inputs.purchase_price;
+      const gap=askPrice-nt.ceiling;
+      const gapStr=gap>0?'<span style="color:var(--red);font-weight:700"> — asking price is $'+Math.round(gap).toLocaleString()+' ABOVE ceiling</span>':
+                         '<span style="color:var(--green);font-weight:700"> — asking price is WITHIN range</span>';
+      let negH='<div class="neg-banner"><div class="neg-title">E — Negotiation Target (Solves for Cap Rate + DSCR + Positive Leverage simultaneously)</div>';
+      negH+='<div style="font-size:12px;color:var(--dim);margin-bottom:10px">Asking price: <b style="color:var(--text)">'+fmt(askPrice)+'</b>'+gapStr+'</div>';
+      negH+='<div class="neg-grid">';
+      negH+='<div class="neg-cell ceiling"><div class="neg-cell-lbl">Price Ceiling</div><div class="neg-cell-val">'+fmt(nt.ceiling)+'</div><div style="font-size:10px;color:var(--dim);margin-top:2px">max that clears all 3</div></div>';
+      negH+='<div class="neg-cell opening"><div class="neg-cell-lbl">Opening Offer</div><div class="neg-cell-val">'+fmt(nt.opening_offer)+'</div><div style="font-size:10px;color:var(--dim);margin-top:2px">10% below ceiling</div></div>';
+      negH+='<div class="neg-cell aggressive"><div class="neg-cell-lbl">Aggressive Offer</div><div class="neg-cell-val">'+fmt(nt.aggressive_offer)+'</div><div style="font-size:10px;color:var(--dim);margin-top:2px">15% below ceiling</div></div>';
+      negH+='</div>';
+      negH+='<div class="neg-binding">Binding constraint: '+nt.binding_constraint+' (most restrictive metric sets the ceiling)</div>';
+      negH+='<div class="neg-constraints">';
+      negH+='<div class="neg-con"><span class="neg-con-k">Cap Rate constraint (NOI ÷ '+d.config_used.min_cap_rate+'%)</span><span class="neg-con-v">max $'+Math.round(nt.cap_rate_max).toLocaleString()+'</span></div>';
+      negH+='<div class="neg-con"><span class="neg-con-k">DSCR constraint (NOI ÷ '+d.config_used.min_dscr+'x debt service)</span><span class="neg-con-v">max $'+Math.round(nt.dscr_max).toLocaleString()+'</span></div>';
+      negH+='<div class="neg-con"><span class="neg-con-k">Positive Leverage constraint (Cap must exceed '+d.financing.rate+'% rate)</span><span class="neg-con-v">max $'+Math.round(nt.pos_lev_max).toLocaleString()+'</span></div>';
+      negH+='</div>';
+      negH+='<div style="font-size:11px;color:var(--dim);margin-top:8px">At ceiling price — confirmed metrics:</div>';
+      negH+='<div class="neg-at-ceiling">';
+      const ac=nt.at_ceiling;
+      negH+='<div class="nac"><div class="nac-l">Cap Rate</div><div class="nac-v">'+ac.cap_rate+'%</div></div>';
+      negH+='<div class="nac"><div class="nac-l">DSCR</div><div class="nac-v">'+ac.dscr+'</div></div>';
+      negH+='<div class="nac"><div class="nac-l">Pos. Leverage</div><div class="nac-v">'+(ac.positive_leverage>0?'+':'')+ac.positive_leverage+'%</div></div>';
+      negH+='</div></div>';
+      $('sNeg').innerHTML=negH;$('sNeg').style.display='block';
+    } else {$('sNeg').style.display='none'}
+
+    // Due Diligence Checklist
+    if(d.due_diligence&&d.due_diligence.length){
+      let ddH=sh('F — Due Diligence Checklist');
+      d.due_diligence.forEach(cat=>{
+        const isMixed=cat.category.includes('Mixed');
+        ddH+='<div class="dd-cat"><div class="dd-cat-title">'+(isMixed?'🏢 ':'')+cat.category+'</div>';
+        cat.items.forEach(item=>{
+          ddH+='<div class="dd-item'+(isMixed?' dd-mixed':'')+'">'+item+'</div>';
+        });
+        ddH+='</div>';
+      });
+      $('sDD').innerHTML=ddH;$('sDD').style.display='block';
+    } else {$('sDD').style.display='none'}
+
+    // Risk/Reward
+    if(d.risk_reward){const rr=d.risk_reward;const rL={no_job_driver:"No Job Driver",weak_demographics:"Weak Demographics",supply_pipeline:"Supply Pipeline",rent_ceiling_risk:"Rent Ceiling",flood_environmental:"Flood / Enviro"};const wL={discount_to_value:"Discount to Value",job_driver_proximity:"Job Proximity",renter_market:"Renter Market",rent_growth_trend:"Rent Growth",constrained_supply:"Constrained Supply"};
+    let rrH=sh('E — Risk-to-Reward')+'<div class="rr-summary"><div class="rr-cell risk"><div class="rr-cell-lbl">Risk</div><div class="rr-cell-val">'+rr.risk_score.toFixed(2)+'</div></div><div class="rr-cell reward"><div class="rr-cell-lbl">Reward</div><div class="rr-cell-val">'+rr.reward_score.toFixed(2)+'</div></div><div class="rr-cell ratio"><div class="rr-cell-lbl">Ratio</div><div class="rr-cell-val">'+rr.ratio.toFixed(2)+'x</div></div></div><div class="rr-vrd">'+rr.verdict+'</div>'+sh('Risk Factors','10px');
+    for(const k in rr.risks)rrH+='<div class="rr-factor"><div><div class="rr-fl">'+(rL[k]||k)+'</div><div class="rr-fnote">'+rr.risks[k].note+'</div></div><div class="rr-fs r'+rr.risks[k].score+'">'+rr.risks[k].score+'/5</div><div class="rr-bar"><div class="rr-bar-fill" style="width:'+(rr.risks[k].score*20)+'%;background:var(--red)"></div></div></div>';
+    rrH+=sh('Reward Factors','10px');
+    for(const k in rr.rewards)rrH+='<div class="rr-factor"><div><div class="rr-fl">'+(wL[k]||k)+'</div><div class="rr-fnote">'+rr.rewards[k].note+'</div></div><div class="rr-fs rev'+rr.rewards[k].score+'">'+rr.rewards[k].score+'/5</div><div class="rr-bar"><div class="rr-bar-fill" style="width:'+(rr.rewards[k].score*20)+'%;background:var(--green)"></div></div></div>';
+    $('sRR').innerHTML=rrH;$('sRR').style.display='block'}else{$('sRR').style.display='none'}
+
+    // Market Intel
+    if(d.market_intel){const mi=d.market_intel;const j=mi.jobs||{},dm=mi.demographics||{},rc=mi.rent_ceiling||{},sp=mi.supply||{},ql=mi.qualitative||{};
+    let miH=sh('F — Market Intelligence')+sh('Job Driver','10px')+'<div class="mi-grid">'+mc('Nearest Employer',j.nearest_employer||'—')+mc('Industry',j.industry||'—')+mc('Headcount',j.headcount_estimate?j.headcount_estimate.toLocaleString():'—')+mc('Distance',j.distance_miles?j.distance_miles+' mi':'—')+mc('Avg Wage',j.avg_wage?'$'+j.avg_wage.toLocaleString():'—')+mc('Max Rent',j.max_affordable_rent?'$'+Math.round(j.max_affordable_rent)+'/mo':'—')+'</div>'+(j.source?'<div class="mi-source">Source: '+j.source+'</div>':'')+sh('Demographics','10px')+'<div class="mi-grid">'+mc('Zip',dm.zip_code||'—')+mc('% Renter',dm.pct_renter?(dm.pct_renter*100).toFixed(0)+'%':'—')+mc('Median Income',dm.median_income?'$'+dm.median_income.toLocaleString():'—')+mc('Median 2BR',dm.median_rent_2br?'$'+dm.median_rent_2br.toLocaleString():'—')+mc('Pop Trend',dm.population_trend||'—')+'</div>'+(dm.source?'<div class="mi-source">Source: '+dm.source+'</div>':'')+sh('Rent Ceiling','10px')+'<div class="mi-grid">'+mc('Low',rc.comp_low?'$'+rc.comp_low.toLocaleString():'—')+mc('Median',rc.comp_median?'$'+rc.comp_median.toLocaleString():'—')+mc('High',rc.comp_high?'$'+rc.comp_high.toLocaleString():'—')+mc('New Build',rc.new_construction_rent?'$'+rc.new_construction_rent.toLocaleString():'None')+'</div>'+(rc.source?'<div class="mi-source">Source: '+rc.source+'</div>':'')+sh('Supply','10px')+'<div class="mi-grid">'+mc('New Permits',sp.new_permits_24mo!==undefined?sp.new_permits_24mo:'—')+mc('Apt Projects',sp.new_apt_projects||'—')+mc('Vacancy',sp.vacancy_zip?(sp.vacancy_zip*100).toFixed(1)+'%':'—')+mc('Days on Mkt',sp.days_on_market||'—')+'</div>'+(sp.source?'<div class="mi-source">Source: '+sp.source+'</div>':'')+sh('Qualitative','10px')+'<div class="mi-grid">'+mc('Schools',ql.school_rating?ql.school_rating+'/10':'—')+mc('Flood Zone',ql.flood_zone||'—')+mc('Crime',ql.crime_level||'—')+mc('Walkability',ql.walkability!==undefined?ql.walkability+'/100':'—')+'</div>'+(ql.source?'<div class="mi-source">Source: '+ql.source+'</div>':'');
+    $('sMI').innerHTML=miH;$('sMI').style.display='block'}else{$('sMI').style.display='none'}
+
+    // Sources & Config
+    let srcH=sh('Data Sources');d.sources.forEach(s=>srcH+='<div class="src-i">'+s+'</div>');$('sSrc').innerHTML=srcH;
+    const c2=d.config_used;
+    $('sCfg').innerHTML=sh('Your Investment Rules')+'<div class="cfg-g">'+ci('Min Cap Rate',c2.min_cap_rate+'%')+ci('Min Cash-on-Cash',c2.min_coc+'%')+ci('Min DSCR',c2.min_dscr)+ci('Vacancy Rate',c2.vacancy_rate+'%')+ci('Management Fee',c2.mgmt_fee+'%')+ci('Maintenance',c2.maintenance+'%')+ci('Down Payment',d.financing.down_pct+'%')+ci('Interest Rate',d.financing.rate+'%')+ci('Loan Term','30 yrs')+ci('Closing Costs',c2.closing_costs+'%')+ci('Flip Carry',c2.flip_carry_months+' mo PITI')+ci('Flip Margin Floor',c2.flip_margin_floor+'%')+'</div>';
+
+    // Show HUD toggle for non-NJ
+    if(p&&p.state&&p.state!=='NJ')$('s8HudRow').classList.add('show');
+    $('stratBar').style.display='block';
+    $('printFooter').textContent='AI Deal Scanner · '+d.address+' · Generated '+new Date().toLocaleDateString()+' · David Martinez';
+    $('results').classList.add('on');
+  }catch(e){$('err').textContent='Error connecting to server. Is it running in the terminal?';$('err').classList.add('on')}
+  done()
+}
+
+async function runStrategy(type){
+  if(!lastData)return;
+  const btn=$('btn-'+type);
+  btn.classList.add('loading');btn.disabled=true;btn.textContent='Running...';
+  const p=lastData.property||{},i=lastData.inputs||{},f=lastData.financing||{};
+  const w2=($('w2Toggle').checked&&$('w2Input').value)?parseFloat($('w2Input').value):null;
+  const body={
+    address:lastData.address,purchase_price:i.purchase_price,monthly_rent:i.monthly_rent,
+    annual_taxes:i.annual_taxes,annual_insurance:i.annual_insurance,water_sewer:i.water_sewer||0,
+    estimated_current_value:i.estimated_current_value||0,
+    zip_code:p.zip_code||'',state:p.state||'',
+    bedrooms:p.bedrooms||0,bathrooms:p.bathrooms||0,sqft:p.sqft||0,
+    year_built:p.year_built||0,days_on_market:p.days_on_market||0,
+    down_pct:f.down_pct||10,rate:f.rate||7.0,loan_type:f.loan_type||'investment',
+    search_live:type==='section8'&&$('s8HudToggle').checked,
+    w2_income:w2
+  };
+  try{
+    const res=await fetch('http://127.0.0.1:5000/api/strategy/'+type,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const d=await res.json();
+    renderCard(type,d);
+    btn.classList.remove('loading');
+    btn.className='strat-btn done-'+(d.color||'red');
+    btn.disabled=false;
+    const icons={section8:'🏢',str:'🏖',ltr:'🏠',flip:'🔨',heloc:'💰'};
+    const lbls={section8:'Section 8',str:'STR / Airbnb',ltr:'Value-Add LTR',flip:'Flip',heloc:'HELOC / Equity'};
+    btn.textContent=icons[type]+' '+lbls[type];
+  }catch(e){btn.classList.remove('loading');btn.disabled=false;btn.textContent='Error — retry';alert('Strategy failed. Server running?')}
+}
+
+function renderCard(type,d){
+  const names={section8:'Section 8 / SAFMR',str:'Short-Term Rental',ltr:'Value-Add LTR (B-in-A)',flip:'Flip Analysis',heloc:'HELOC / Equity Pull'};
+  const col=d.color||'red';
+  let html='<div class="strat-card '+col+'" id="strat-'+type+'">';
+  html+='<div class="strat-header" onclick="this.nextElementSibling.classList.toggle(\'open\')">';
+  html+='<div class="strat-h-left"><div class="strat-dot"></div><div><div class="strat-h-name">'+(names[type]||type)+'</div><div class="strat-h-headline">'+(d.headline||'')+'</div></div></div>';
+  html+='<div class="strat-verdict">'+(d.verdict||'')+'</div></div>';
+  html+='<div class="strat-body">';
+
+  // Section 8: numbers front and center if green
+  if(type==='section8'&&d.numbers&&col==='green'){
+    html+='<div class="s8-numbers">';
+    html+='<div class="s8-num-row"><span class="s8-num-l">SAFMR Rate (HUD 2BR)</span><span class="s8-num-v">$'+d.numbers.safmr_rate.toLocaleString()+'/mo</span></div>';
+    html+='<div class="s8-num-row"><span class="s8-num-l">Market Rent</span><span class="s8-num-v">$'+d.numbers.market_rent.toLocaleString()+'/mo</span></div>';
+    html+='<div class="s8-num-row"><span class="s8-num-l">Monthly Premium</span><span class="s8-num-v">+$'+d.numbers.monthly_premium.toLocaleString()+'/mo</span></div>';
+    html+='<div class="s8-num-row"><span class="s8-num-l">Annual Uplift</span><span class="s8-num-v">+$'+d.numbers.annual_uplift.toLocaleString()+'/yr</span></div>';
+    html+='<div class="s8-num-row"><span class="s8-num-l">Area</span><span class="s8-num-v">'+d.numbers.area+'</span></div>';
+    html+='</div>';
+  }
+
+  // LTR: before/after comparison — shows whether reno actually fixes the deal
+  if(type==='ltr'&&d.numbers&&d.numbers.rent_before!==undefined){
+    const n=d.numbers;
+    html+='<div class="flip-scenarios"><div class="flip-scen red"><div class="flip-scen-label">AS-IS (Today)</div>';
+    html+='<div class="flip-scen-row"><span class="flip-scen-k">Rent</span><span class="flip-scen-v">$'+n.rent_before.toLocaleString()+'/mo</span></div>';
+    html+='<div class="flip-scen-row"><span class="flip-scen-k">NOI</span><span class="flip-scen-v">$'+n.noi_before.toLocaleString()+'</span></div>';
+    html+='<div class="flip-scen-row"><span class="flip-scen-k">Cap Rate</span><span class="flip-scen-v">'+n.cap_rate_before+'%</span></div>';
+    html+='<div class="flip-scen-row" style="border-top:1px solid var(--border);margin-top:4px;padding-top:4px"><span class="flip-scen-k">Cash Flow</span><span class="flip-scen-v" style="font-size:14px;font-weight:700;color:'+(n.cash_flow_before<0?'var(--red)':'var(--green)')+'">$'+n.cash_flow_before.toLocaleString()+'/yr</span></div></div>';
+    html+='<div class="flip-scen '+(n.cash_flow_after>=0?'green':'yellow')+'"><div class="flip-scen-label">POST-RENO (Modeled)</div>';
+    html+='<div class="flip-scen-row"><span class="flip-scen-k">Rent</span><span class="flip-scen-v">$'+n.rent_after.toLocaleString()+'/mo</span></div>';
+    html+='<div class="flip-scen-row"><span class="flip-scen-k">NOI</span><span class="flip-scen-v">$'+n.noi_after.toLocaleString()+'</span></div>';
+    html+='<div class="flip-scen-row"><span class="flip-scen-k">Cap Rate</span><span class="flip-scen-v">'+n.cap_rate_after+'%</span></div>';
+    html+='<div class="flip-scen-row" style="border-top:1px solid var(--border);margin-top:4px;padding-top:4px"><span class="flip-scen-k">Cash Flow</span><span class="flip-scen-v" style="font-size:14px;font-weight:700;color:'+(n.cash_flow_after<0?'var(--red)':'var(--green)')+'">$'+n.cash_flow_after.toLocaleString()+'/yr</span></div></div></div>';
+    if(n.reno_payback_years){html+='<div style="text-align:center;font-size:12px;color:var(--dim);margin-bottom:12px">Reno budget <b style="color:var(--text)">$'+n.reno_budget.toLocaleString()+'</b> pays back in <b style="color:var(--text)">'+n.reno_payback_years+' years</b> from the incremental NOI</div>'}
+  }
+
+  // HELOC: step-by-step numbers always visible
+  if(type==='heloc'&&d.numbers){
+    html+='<div class="num-grid">';
+    const helocLabels={estimated_value:'Est. Current Value',original_purchase:'Purchase Price',
+      down_payment_at_purchase:'Down Payment',loan_balance_estimate:'Loan Balance (est.)',
+      equity_dollars:'Equity ($)',equity_pct:'Equity (%)',max_heloc_draw:'Max HELOC Draw (75% LTV)',
+      reno_budget:'Reno Budget (7%)',arv_boost:'ARV Boost',projected_arv:'Projected Post-Reno ARV'};
+    for(const[k,v] of Object.entries(d.numbers)){
+      if(k==='double_play')continue;
+      const lbl=helocLabels[k]||k;
+      const isAmt=!k.includes('pct');
+      const valStr=k.includes('pct')?v.toFixed(1)+'%':fmt(v);
+      const valCls=k==='equity_dollars'||k==='max_heloc_draw'?'green':(k==='loan_balance_estimate'?'red':'');
+      html+='<div class="num-cell"><div class="num-lbl">'+lbl+'</div><div class="num-val '+valCls+'">'+valStr+'</div></div>';
+    }
+    html+='</div>';
+    if(d.numbers.double_play){html+='<div style="background:var(--purple-bg);border:1px solid rgba(167,139,250,.3);border-radius:6px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:var(--purple)">🔑 DOUBLE PLAY: Reno produces 1.5x ARV lift — pull equity, renovate, reassess</div>'}
+  }
+
+  // Flip: dual scenario comparison
+  if(type==='flip'&&d.scenario_a&&d.scenario_b){
+    html+='<div class="flip-scenarios">';
+    [d.scenario_a,d.scenario_b].forEach(sc=>{
+      html+='<div class="flip-scen '+sc.color+'"><div class="flip-scen-label">'+sc.label+'</div>';
+      const n=sc.numbers;
+      html+='<div class="flip-scen-row"><span class="flip-scen-k">Down / Rate</span><span class="flip-scen-v">'+n.down_pct+'% / '+n.rate+'</span></div>';
+      html+='<div class="flip-scen-row"><span class="flip-scen-k">Construction</span><span class="flip-scen-v">'+fmt(n.construction)+'</span></div>';
+      html+='<div class="flip-scen-row"><span class="flip-scen-k">Carrying (9mo)</span><span class="flip-scen-v">'+fmt(n.carrying)+'</span></div>';
+      html+='<div class="flip-scen-row"><span class="flip-scen-k">Total All-In</span><span class="flip-scen-v">'+fmt(n.total_all_in)+'</span></div>';
+      html+='<div class="flip-scen-row"><span class="flip-scen-k">Est. ARV</span><span class="flip-scen-v">'+fmt(n.estimated_arv)+'</span></div>';
+      html+='<div class="flip-scen-row" style="border-top:1px solid var(--border);margin-top:4px;padding-top:4px"><span class="flip-scen-k">Net Margin</span><span class="flip-scen-v" style="font-size:14px;font-weight:700">'+n.net_margin+'</span></div>';
+      html+='<div class="flip-scen-row"><span class="flip-scen-k">Verdict</span><span class="flip-scen-v">'+sc.verdict+'</span></div>';
+      html+='</div>';});
+    html+='</div>';
+  }
+
+  // STR tax estimate
+  if(type==='str'&&d.tax_section){
+    const tx=d.tax_section;
+    html+='<div class="tax-box"><div class="tax-title">📊 STR Depreciation Estimate (Compass Only)</div>';
+    html+='<div class="tax-row"><span class="tax-k">Straight-Line Depreciation/yr</span><span class="tax-v">'+fmt(tx.annual_straight_line)+'</span></div>';
+    html+='<div class="tax-row"><span class="tax-k">Cost Seg Accelerated Yr1 (Est.)</span><span class="tax-v">'+fmt(tx.cost_seg_yr1_low)+' – '+fmt(tx.cost_seg_yr1_high)+'</span></div>';
+    html+='<div class="tax-row"><span class="tax-k">Total Yr1 Paper Loss (Est.)</span><span class="tax-v">'+fmt(tx.total_dep_yr1_low)+' – '+fmt(tx.total_dep_yr1_high)+'</span></div>';
+    if(tx.estimated_refund_low){
+      html+='<div class="tax-row"><span class="tax-k">W2 Income Used</span><span class="tax-v">'+fmt(tx.w2_offset)+'</span></div>';
+      html+='<div class="tax-row"><span class="tax-k">Est. Tax Bracket</span><span class="tax-v">'+tx.bracket+'%</span></div>';
+      html+='<div class="tax-row"><span class="tax-k">Estimated W2 Offset</span><span class="tax-v">'+fmt(tx.estimated_refund_low)+' – '+fmt(tx.estimated_refund_high)+'</span></div>';
+    }
+    html+='<div class="tax-warn">⚠ These are estimates only. Cost segregation must be performed by a licensed professional. Consult a CPA before filing. Incorrect application triggers IRS scrutiny.</div></div>';
+  }
+
+  // Checklist
+  if(d.checklist&&d.checklist.length){
+    html+='<div class="checklist">';
+    d.checklist.forEach(item=>{
+      const icon=item.status==='pass'?'✅':item.status==='fail'?'❌':item.status==='warn'?'⚠️':item.status==='action'?'→':'ℹ️';
+      html+='<div class="chk-item"><div class="chk-icon">'+icon+'</div><div class="chk-text"><div class="chk-label">'+item.item+'</div><div class="chk-note">'+item.note+'</div></div></div>';});
+    html+='</div>';}
+
+  // Formula
+  if(d.formula){html+='<div class="formula-box">'+d.formula+'</div>'}
+
+  // Details
+  if(d.details&&d.details.length){
+    d.details.forEach(det=>html+='<div style="font-size:12px;color:var(--dim);padding:4px 0;border-bottom:1px solid var(--border)">→ '+det+'</div>')}
+
+  // Footnotes — always visible steps for HELOC, toggle for others
+  const allFn=[...(d.footnotes||[]),...(type==='flip'&&d.scenario_a?[...d.scenario_a.footnotes,...d.scenario_b.footnotes]:[]),...(d.tax_section?.footnotes||[])];
+  if(allFn.length){
+    const alwaysOpen=type==='heloc';
+    html+='<div class="fn-toggle" onclick="this.nextElementSibling.classList.toggle(\'open\');this.textContent=this.nextElementSibling.classList.contains(\'open\')?\'▾ HIDE FORMULAS\':\'▸ SHOW FORMULAS\'">'+(alwaysOpen?'▾ HIDE FORMULAS':'▸ SHOW FORMULAS')+'</div>';
+    html+='<div class="fn-wrap'+(alwaysOpen?' open':'')+'">';
+    allFn.forEach(f=>html+='<div class="fn-line">'+f+'</div>');html+='</div>';}
+
+  html+='</div></div>';
+  const ex=$('strat-'+type);
+  if(ex)ex.outerHTML=html;
+  else $('stratResults').insertAdjacentHTML('beforeend',html);
+}
+
+function done(){$('ld').classList.remove('on');$('btn').disabled=false;$('btn').textContent='Analyze'}
+function sh(t,fs){return'<div class="sec-h"'+(fs?' style="font-size:'+fs+'"':'')+'>'+t+'</div>'}
+function rw(l,v,cls){return'<div class="rw '+(cls||'')+'"><span class="rw-l">'+l+'</span><span class="rw-v">'+v+'</span></div>'}
+function ci(l,v){return'<div class="cfg-i"><span class="cfg-l">'+l+'</span><span class="cfg-v">'+v+'</span></div>'}
+function mc(l,v){return'<div class="mi-cell"><div class="mi-cell-lbl">'+l+'</div><div class="mi-cell-val">'+v+'</div></div>'}
+function pR(label,vals,trCls,colorize,raw){let h='<tr'+(trCls?' class="'+trCls+'"':'')+'><td>'+label+'</td>';vals.forEach(v=>{let cls='';if(colorize){let n=typeof v==='string'?parseFloat(v):v;cls=n<0?' class="neg"':(n>0?' class="pos"':'')}h+='<td'+cls+'>'+(raw?v:fmt(v))+'</td>'});return h+'</tr>'}
+</script>
+</body>
+</html>

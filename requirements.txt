@@ -1,0 +1,8 @@
+flask
+flask-cors
+python-dotenv
+anthropic
+beautifulsoup4
+google-auth
+google-auth-oauthlib
+google-api-python-client
