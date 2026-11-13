@@ -16,3 +16,6 @@ pipeline_results*.json
 *.backup
 *.pre_units
 .DS_Store
+
+# Personal operating guide: stays on this Mac
+Daily_Startup_Guide*.pdf
